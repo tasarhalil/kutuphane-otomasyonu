@@ -1,0 +1,174 @@
+@startuml class-diagram
+title Kütüphane Otomasyonu - Sınıf Diyagramı
+skinparam classAttributeIconSize 0
+
+package "kullanici-servisi" {
+  abstract class Kullanici {
+    +id: int
+    +ad: str
+    +email: str
+    -sifreHash: str
+    +rol: str
+    +uyeNo: str
+    +sifreAyarla(sifre)
+    +sifreDogrula(sifre): bool
+    +girisYap(email, sifre): str
+  }
+  class Uye {
+    +kitapAra(anahtar): dict
+    +oduncAl(kitapId): dict
+  }
+  class Yonetici {
+    +kitapEkle(kitap): dict
+    +gecikmeRaporuAl(): dict
+  }
+  class Rol <<constants>> {
+    UYE
+    YONETICI
+  }
+  class GirisHatasi <<exception>>
+  Kullanici <|-- Uye
+  Kullanici <|-- Yonetici
+  Kullanici ..> Rol
+  Kullanici ..> GirisHatasi : fırlatır
+
+  class KullaniciServisi {
+    +kayitOl(girdi): Uye
+    +girisYap(girdi): dict
+    +kullaniciGetir(kullaniciId): Kullanici
+    +ilkYoneticiOlustur()
+  }
+  class KullaniciDeposu {
+    +idIleGetir(kullaniciId): Kullanici
+    +emailIleGetir(email): Kullanici
+    +yoneticiVarMi(): bool
+    +ekle(kullanici)
+    +kaydet()
+  }
+  KullaniciServisi --> KullaniciDeposu
+  KullaniciServisi ..> Kullanici
+  KullaniciDeposu ..> Kullanici
+}
+
+package "katalog-servisi" {
+  class Kitap {
+    +kitapId: int
+    +baslik: str
+    +yazar: str
+    +isbn: str
+  }
+  class Stok {
+    +kitapId: int
+    +toplamAdet: int
+    +mevcutAdet: int
+    +stokDus()
+    +stokArtir()
+  }
+  class StokHatasi <<exception>>
+  Kitap "1" *-- "1" Stok
+  Stok ..> StokHatasi : fırlatır
+
+  class KitapServisi {
+    +ara(arama): list
+    +getir(kitapId): Kitap
+    +ekle(girdi): Kitap
+    +stokDus(kitapId): Stok
+    +stokArtir(kitapId): Stok
+  }
+  class KitapDeposu {
+    +ara(arama): list
+    +idIleGetir(kitapId): Kitap
+    +sayi(): int
+    +ekle(kitap)
+    +stokKilitle(kitapId): Stok
+    +kaydet()
+  }
+  KitapServisi --> KitapDeposu
+  KitapServisi ..> Kitap
+  KitapServisi ..> Stok
+  KitapDeposu ..> Kitap
+}
+
+package "odunc-servisi" {
+  class Odunc {
+    +oduncId: int
+    +uyeId: int
+    +kitapId: int
+    +alisTarihi: date
+    +sonTeslimTarihi: date
+    +iadeTarihi: date
+    +durum: OduncDurumu
+    +iadeEt(iadeTarihi)
+  }
+  class GecikmeRaporu {
+    +oduncId: int
+    +gecikmeGun: int
+    +cezaTutari: decimal
+    +cezaHesapla(): decimal
+  }
+  enum OduncDurumu {
+    AKTIF
+    IADE_EDILDI
+    GECIKMIS_IADE
+  }
+  class IadeHatasi <<exception>>
+  Odunc "1" *-- "0..1" GecikmeRaporu
+  Odunc --> OduncDurumu
+  Odunc ..> IadeHatasi : fırlatır
+
+  class OduncServisi {
+    +oduncAl(uyeId, kitapId): Odunc
+    +iadeEt(oduncId, uyeId): Odunc
+    +benimOduncler(uyeId): list
+    +tumOduncler(durum): list
+    +kayitliGecikmeler(): list
+    +anlikGecikmeler(): list
+  }
+  class OduncDeposu {
+    +idIleGetir(oduncId): Odunc
+    +uyeAktifKitapOduncuVarMi(uyeId, kitapId): bool
+    +uyeAktifSayisi(uyeId): int
+    +uyeninOduncleri(uyeId): list
+    +tumOduncler(durum): list
+    +gecikmeRaporlari(): list
+    +suresiGecmisAktifler(bugun): list
+    +ekle(odunc)
+    +flush()
+    +kaydet()
+    +geriAl()
+  }
+  class KullaniciIstemcisi {
+    +uyeGetir(uyeId): dict
+  }
+  class KatalogIstemcisi {
+    +stokDus(kitapId)
+    +stokArtir(kitapId)
+  }
+  OduncServisi --> OduncDeposu
+  OduncServisi --> KullaniciIstemcisi
+  OduncServisi --> KatalogIstemcisi
+  OduncServisi ..> Odunc
+  OduncDeposu ..> Odunc
+  OduncDeposu ..> GecikmeRaporu
+}
+
+package "api-gateway" {
+  class Guvenlik <<module>> {
+    +tokenDogrula(token): dict
+    +kimlikBasliklari(veri): dict
+  }
+  class Yonlendirme <<module>> {
+    +hedefServis(yol): str
+    +herkeseAcikMi(yontem, yol): bool
+    +ilet(istek, servis, yol, ekBasliklar)
+  }
+}
+
+' Servisler arası ilişkiler yalnızca ID ile kurulur (foreign key yok)
+Odunc ..> Uye : uyeId
+Odunc ..> Kitap : kitapId
+
+' Servisler arası REST çağrıları (X-Ic-Anahtar ile korunur)
+KullaniciIstemcisi ..> KullaniciServisi : GET /ic/kullanicilar/{id}
+KatalogIstemcisi ..> KitapServisi : POST /ic/kitaplar/{id}/stok-dus|stok-artir
+@enduml

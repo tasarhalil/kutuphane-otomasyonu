@@ -1,0 +1,31 @@
+@startuml deployment-diagram
+title Kütüphane Otomasyonu - Dağıtım Diyagramı
+
+node "Kullanıcı Tarayıcısı" as tarayici
+
+node "Docker Host (ağ: kutuphane_agi)" {
+  node "web-arayuz\n(Nginx :80, dışarıya :3000)\nReact + Vite + Tailwind" as web
+  node "api-gateway\n(FastAPI :8000, dışarıya :8000)" as gw
+
+  node "kullanici-servisi\n(FastAPI :8001, yalnızca iç ağ)" as ks
+  database "kullanici-db\n(PostgreSQL 16)\nvolume: kullanici_veri" as kdb
+
+  node "katalog-servisi\n(FastAPI :8002, yalnızca iç ağ)" as cs
+  database "katalog-db\n(PostgreSQL 16)\nvolume: katalog_veri" as cdb
+
+  node "odunc-servisi\n(FastAPI :8003, yalnızca iç ağ)" as os
+  database "odunc-db\n(PostgreSQL 16)\nvolume: odunc_veri" as odb
+}
+
+tarayici --> web : HTTP :3000
+tarayici ..> gw : HTTP :8000 (doğrudan erişim, isteğe bağlı)
+web --> gw : /api (Nginx proxy)
+gw --> ks : REST
+gw --> cs : REST
+gw --> os : REST
+os --> ks : REST (X-Ic-Anahtar)
+os --> cs : REST (X-Ic-Anahtar)
+ks --> kdb : SQL
+cs --> cdb : SQL
+os --> odb : SQL
+@enduml

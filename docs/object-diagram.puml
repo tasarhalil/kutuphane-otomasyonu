@@ -1,0 +1,57 @@
+@startuml object-diagram
+title Kütüphane Otomasyonu - Nesne Diyagramı (örnek senaryo)
+
+' Senaryo: öğrenci "Suç ve Ceza" kitabını ödünç alır ve 3 gün geç iade eder (günlük ceza 5 TL)
+
+object "uye1 : Uye" as uye1 {
+  id = 2
+  ad = "Ayşe Yılmaz"
+  email = "ayse@uni.edu"
+  rol = "UYE"
+  uyeNo = "202600002"
+}
+
+object "yonetici1 : Yonetici" as yonetici1 {
+  id = 1
+  ad = "Sistem Yöneticisi"
+  email = "admin@kutuphane.local"
+  rol = "YONETICI"
+}
+
+object "kitap1 : Kitap" as kitap1 {
+  kitapId = 1
+  baslik = "Suç ve Ceza"
+  yazar = "Fyodor Dostoyevski"
+  isbn = "9789750719387"
+}
+
+object "stok1 : Stok" as stok1 {
+  kitapId = 1
+  toplamAdet = 5
+  mevcutAdet = 5
+}
+
+object "odunc1 : Odunc" as odunc1 {
+  oduncId = 1
+  uyeId = 2
+  kitapId = 1
+  alisTarihi = 2026-01-01
+  sonTeslimTarihi = 2026-01-15
+  iadeTarihi = 2026-01-18
+  durum = GECIKMIS_IADE
+}
+
+object "rapor1 : GecikmeRaporu" as rapor1 {
+  oduncId = 1
+  gecikmeGun = 3
+  cezaTutari = 15.00
+}
+
+kitap1 *-- stok1
+odunc1 *-- rapor1
+
+' Servisler arası ilişki yalnızca ID ile kurulur (foreign key yok)
+odunc1 ..> uye1 : uyeId = 2
+odunc1 ..> kitap1 : kitapId = 1
+yonetici1 ..> kitap1 : kitapEkle
+@enduml

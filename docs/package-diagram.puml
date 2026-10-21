@@ -1,0 +1,67 @@
+@startuml package-diagram
+title Kütüphane Otomasyonu - Paket Diyagramı
+skinparam packageStyle rectangle
+
+package "web-arayuz" as WEB {
+  package "sayfalar" as W1
+  package "bilesenler" as W2
+  package "api" as W3
+}
+W1 --> W2
+W1 --> W3
+
+package "api-gateway" as GW {
+  package "guvenlik" as G1
+  package "yonlendirme" as G2
+}
+G2 --> G1
+
+package "kullanici-servisi" as KS {
+  package "routers" as K1
+  package "schemas" as K5
+  package "services" as K2
+  package "repositories" as K3
+  package "models" as K4
+}
+K1 --> K5
+K1 --> K2
+K2 --> K3
+K3 --> K4
+
+package "katalog-servisi" as CS {
+  package "routers" as C1
+  package "schemas" as C5
+  package "services" as C2
+  package "repositories" as C3
+  package "models" as C4
+}
+C1 --> C5
+C1 --> C2
+C2 --> C3
+C3 --> C4
+
+package "odunc-servisi" as OS {
+  package "routers" as O1
+  package "schemas" as O5
+  package "services" as O2
+  package "repositories" as O3
+  package "models" as O4
+}
+O1 --> O5
+O1 --> O2
+O2 --> O3
+O3 --> O4
+
+W3 ..> GW : HTTP /api
+GW ..> KS : REST (/auth, /kullanicilar)
+GW ..> CS : REST (/kitaplar)
+GW ..> OS : REST (/oduncler, /raporlar)
+O2 ..> KS : iç çağrı (üye doğrulama)
+O2 ..> CS : iç çağrı (stok düş/artır)
+
+note bottom of GW
+  JWT yalnızca gateway'de doğrulanır;
+  servislere X-Kullanici-Id / X-Kullanici-Rol iletilir.
+  /ic uç noktaları dışarıya kapalıdır.
+end note
+@enduml

@@ -1,0 +1,114 @@
+# Kütüphane Otomasyonu - Docker Compose
+# Dışarıya yalnızca `web-arayuz` ve `api-gateway` port açar. Diğer servisler iç ağda kalır.
+
+x-python-servis: &python-servis
+  env_file: .env
+  restart: unless-stopped
+
+services:
+  # ---------------- Web Arayüzü (Nginx) ----------------
+  web-arayuz:
+    build: ./web-arayuz
+    ports:
+      - "${ARAYUZ_PORTU:-3000}:80"
+    depends_on:
+      - api-gateway
+    restart: unless-stopped
+
+  # ---------------- API Gateway ----------------
+  api-gateway:
+    <<: *python-servis
+    build: ./api-gateway
+    environment:
+      KULLANICI_URL: http://kullanici-servisi:8001
+      KATALOG_URL: http://katalog-servisi:8002
+      ODUNC_URL: http://odunc-servisi:8003
+    ports:
+      - "8000:8000"
+    depends_on:
+      - kullanici-servisi
+      - katalog-servisi
+      - odunc-servisi
+
+  # ---------------- Kullanici Servisi ----------------
+  kullanici-servisi:
+    <<: *python-servis
+    build: ./services/kullanici-servisi
+    environment:
+      VERITABANI_URL: postgresql+psycopg2://${DB_KULLANICI}:${DB_SIFRE}@kullanici-db:5432/kullanici_db
+    expose: ["8001"]
+    ports:
+      - "127.0.0.1:8001:8001"  # yalnızca Swagger (/docs) için; dışarıya kapalı
+    depends_on:
+      kullanici-db: { condition: service_healthy }
+
+  kullanici-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: kullanici_db
+      POSTGRES_USER: ${DB_KULLANICI}
+      POSTGRES_PASSWORD: ${DB_SIFRE}
+    volumes: [kullanici_veri:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_KULLANICI} -d kullanici_db"]
+      interval: 5s
+      retries: 10
+
+  # ---------------- Katalog Servisi ----------------
+  katalog-servisi:
+    <<: *python-servis
+    build: ./services/katalog-servisi
+    environment:
+      VERITABANI_URL: postgresql+psycopg2://${DB_KULLANICI}:${DB_SIFRE}@katalog-db:5432/katalog_db
+    expose: ["8002"]
+    ports:
+      - "127.0.0.1:8002:8002"
+    depends_on:
+      katalog-db: { condition: service_healthy }
+
+  katalog-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: katalog_db
+      POSTGRES_USER: ${DB_KULLANICI}
+      POSTGRES_PASSWORD: ${DB_SIFRE}
+    volumes: [katalog_veri:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_KULLANICI} -d katalog_db"]
+      interval: 5s
+      retries: 10
+
+  # ---------------- Odunc Servisi ----------------
+  odunc-servisi:
+    <<: *python-servis
+    build: ./services/odunc-servisi
+    environment:
+      VERITABANI_URL: postgresql+psycopg2://${DB_KULLANICI}:${DB_SIFRE}@odunc-db:5432/odunc_db
+      KULLANICI_URL: http://kullanici-servisi:8001
+      KATALOG_URL: http://katalog-servisi:8002
+    expose: ["8003"]
+    ports:
+      - "127.0.0.1:8003:8003"
+    depends_on:
+      odunc-db: { condition: service_healthy }
+
+  odunc-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: odunc_db
+      POSTGRES_USER: ${DB_KULLANICI}
+      POSTGRES_PASSWORD: ${DB_SIFRE}
+    volumes: [odunc_veri:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_KULLANICI} -d odunc_db"]
+      interval: 5s
+      retries: 10
+
+volumes:
+  kullanici_veri:
+  katalog_veri:
+  odunc_veri:
+
+networks:
+  default:
+    name: kutuphane_agi
